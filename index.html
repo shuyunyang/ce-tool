@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>箱涵幾何與數量動態計算儀表板 (土木人專用版)</title>
+    <style>
+        /* 明亮專業工程儀表板風格 */
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: #f8fafc; 
+            color: #1e293b; 
+            margin: 0; 
+            padding: 20px; 
+            display: flex; 
+            justify-content: center; 
+        }
+        .dashboard { 
+            max-width: 900px; 
+            width: 100%; 
+            background: #ffffff; 
+            padding: 24px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08); 
+            display: flex; 
+            flex-direction: column; 
+            gap: 20px; 
+            border: 1px solid #e2e8f0;
+        }
+        h2 { 
+            text-align: center; 
+            color: #1d4ed8; 
+            border-bottom: 2px solid #f1f5f9; 
+            padding-bottom: 15px; 
+            margin-top: 0; 
+        }
+
+        /* 快捷按鈕區 */
+        .preset-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #f1f5f9;
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            flex-wrap: wrap;
+        }
+        .preset-title {
+            font-size: 0.9em;
+            color: #475569;
+            font-weight: bold;
+        }
+        .btn-preset {
+            background: #ffffff;
+            color: #334155;
+            border: 1px solid #cbd5e1;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.2s ease;
+        }
+        .btn-preset:hover {
+            background: #2563eb;
+            color: #ffffff;
+            border-color: #2563eb;
+        }
+        .source-tag {
+            font-size: 0.75em;
+            color: #64748b;
+            margin-left: auto;
+        }
+        
+        /* 明亮工程圖面顯示區 */
+        .svg-container { 
+            width: 100%; 
+            height: 400px; 
+            background: #ffffff; 
+            border: 2px solid #cbd5e1; 
+            border-radius: 8px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            overflow: hidden; 
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+        }
+        svg { width: 100%; height: 100%; }
+        
+        /* 數據表格區 */
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            text-align: left; 
+            background: #ffffff; 
+            border-radius: 8px; 
+            overflow: hidden; 
+            border: 1px solid #e2e8f0;
+        }
+        th, td { padding: 12px 15px; border-bottom: 1px solid #f1f5f9; }
+        th { color: #475569; font-weight: 600; background: #f8fafc; }
+        .val-col { color: #d97706; font-weight: bold; font-size: 1.1em; }
+        
+        /* 控制面板區 */
+        .controls { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); 
+            gap: 15px; 
+            background: #f8fafc; 
+            padding: 15px; 
+            border-radius: 8px; 
+            border: 1px solid #e2e8f0; 
+        }
+        .input-group { display: flex; justify-content: space-between; align-items: center; }
+        .input-group label { color: #475569; font-size: 0.9em; font-weight: 500; }
+        .input-group input { width: 80px; padding: 6px; background: #ffffff; border: 1px solid #cbd5e1; color: #1e293b; border-radius: 4px; text-align: right; }
+        .input-group input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1); }
+
+        /* 操作與匯出區 */
+        .action-area {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+        .btn-export {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s ease;
+        }
+        .btn-export:hover {
+            background: #1d4ed8;
+        }
+        .export-msg {
+            color: #16a34a;
+            font-size: 0.85em;
+            font-weight: 500;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="dashboard">
+    <h2>箱涵幾何與數量動態儀表板</h2>
+
+    <!-- 1. 常用工程標準圖帶入 -->
+    <div class="preset-container">
+        <span class="preset-title">標準規範帶入：</span>
+        <button class="btn-preset" onclick="applyPreset(2.0, 2.0, 0.30, 0.30, 0.35, 0.30)">小型 (2.0x2.0m)</button>
+        <button class="btn-preset" onclick="applyPreset(3.0, 2.5, 0.35, 0.40, 0.40, 0.35)">中型 (3.0x2.5m)</button>
+        <button class="btn-preset" onclick="applyPreset(5.0, 2.5, 0.40, 0.50, 0.50, 0.40)">大型 (5.0x2.5m)</button>
+        <span class="source-tag">參考：水利工程/公路下水道標準圖</span>
+    </div>
+
+    <!-- 2. 明亮圖面繪製區 (採用外部延伸標註) -->
+    <div class="svg-container">
+        <svg id="culvertSvg" xmlns="http://www.w3.org/2000/svg">
+            <g id="drawGroup">
+                <!-- PC 墊層 -->
+                <rect id="rectPC" fill="#e2e8f0" stroke="#64748b" stroke-width="0.04"></rect>
+                <!-- RC 結構外廓 -->
+                <rect id="rectOuter" fill="#cbd5e1" stroke="#334155" stroke-width="0.05"></rect>
+                <!-- 內部淨空 -->
+                <polygon id="polyInner" fill="#ffffff" stroke="#2563eb" stroke-width="0.04"></polygon>
+                
+                <!-- 跨度 S 外部標註群組 (上方白色留白區) -->
+                <line id="extS1" stroke="#94a3b8" stroke-width="0.015" stroke-dasharray="0.05 0.05"></line>
+                <line id="extS2" stroke="#94a3b8" stroke-width="0.015" stroke-dasharray="0.05 0.05"></line>
+                <line id="lineS" stroke="#dc2626" stroke-width="0.025"></line>
+                <text id="textS" fill="#dc2626" font-size="0.28" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="auto"></text>
+                
+                <!-- 高度 H 外部標註群組 (右側白色留白區) -->
+                <line id="extH1" stroke="#94a3b8" stroke-width="0.015" stroke-dasharray="0.05 0.05"></line>
+                <line id="extH2" stroke="#94a3b8" stroke-width="0.015" stroke-dasharray="0.05 0.05"></line>
+                <line id="lineH" stroke="#dc2626" stroke-width="0.025"></line>
+                <text id="textH" fill="#dc2626" font-size="0.28" font-family="sans-serif" font-weight="bold" text-anchor="start" dominant-baseline="middle"></text>
+            </g>
+        </svg>
+    </div>
+
+    <!-- 3. 計算結果表 -->
+    <table>
+        <thead>
+            <tr><th>項目</th><th>數值</th><th>單位</th><th>說明</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>結構混凝土 (RC)</td><td id="resRC" class="val-col">0.000</td><td>m³/m</td><td>主體結構體積 (含腋角)</td></tr>
+            <tr><td>墊層混凝土 (PC)</td><td id="resPC" class="val-col">0.000</td><td>m³/m</td><td>基底找平層體積</td></tr>
+            <tr><td>模板總面積</td><td id="resForm" class="val-col">0.00</td><td>m²/m</td><td>內外側、PC邊緣與腋角斜面</td></tr>
+        </tbody>
+    </table>
+
+    <!-- 4. 參數調控面板 -->
+    <div class="controls">
+        <div class="input-group"><label>淨跨度 S (m)</label><input type="number" id="inpS" value="5.0" step="0.1" oninput="updateAll()"></div>
+        <div class="input-group"><label>淨高度 H (m)</label><input type="number" id="inpH" value="2.5" step="0.1" oninput="updateAll()"></div>
+        <div class="input-group"><label>側牆厚 t1 (m)</label><input type="number" id="inpT1" value="0.4" step="0.05" oninput="updateAll()"></div>
+        <div class="input-group"><label>頂版厚 t2 (m)</label><input type="number" id="inpT2" value="0.5" step="0.05" oninput="updateAll()"></div>
+        <div class="input-group"><label>底版厚 t3 (m)</label><input type="number" id="inpT3" value="0.5" step="0.05" oninput="updateAll()"></div>
+        <div class="input-group"><label>隅角 F (m)</label><input type="number" id="inpF" value="0.4" step="0.05" oninput="updateAll()"></div>
+        <div class="input-group"><label>PC 墊層厚 (m)</label><input type="number" id="inpPCThick" value="0.1" step="0.05" oninput="updateAll()"></div>
+        <div class="input-group"><label>PC 側延伸 (m)</label><input type="number" id="inpPCExt" value="0.05" step="0.01" oninput="updateAll()"></div>
+    </div>
+
+    <!-- 5. 匯出與複製區 -->
+    <div class="action-area">
+        <button class="btn-export" onclick="copySummary()">📋 複製數量計算摘要</button>
+        <span id="exportMsg" class="export-msg">✓ 摘要已成功複製至剪貼簿！</span>
+    </div>
+</div>
+
+<script>
+    function updateAll() {
+        const S = parseFloat(document.getElementById('inpS').value) || 0;
+        const H = parseFloat(document.getElementById('inpH').value) || 0;
+        const t1 = parseFloat(document.getElementById('inpT1').value) || 0;
+        const t2 = parseFloat(document.getElementById('inpT2').value) || 0;
+        const t3 = parseFloat(document.getElementById('inpT3').value) || 0;
+        let F = parseFloat(document.getElementById('inpF').value) || 0;
+        const pcThick = parseFloat(document.getElementById('inpPCThick').value) || 0;
+        const pcExt = parseFloat(document.getElementById('inpPCExt').value) || 0;
+
+        if(F > S/2) F = S/2;
+        if(F > H/2) F = H/2;
+
+        const volRC = (S + 2*t1) * (H + t2 + t3) - (S * H) + 4 * (0.5 * F * F);
+        const volPC = (S + 2*t1 + 2*pcExt) * pcThick;
+        const haunchSlant = Math.sqrt(F*F + F*F);
+        const areaForm = 2*(H + t2 + t3) + (S - 2*F) + 2*(H - 2*F) + 4*haunchSlant + 2*pcThick;
+
+        document.getElementById('resRC').innerText = volRC.toFixed(3);
+        document.getElementById('resPC').innerText = volPC.toFixed(3);
+        document.getElementById('resForm').innerText = areaForm.toFixed(2);
+
+        // 放大四周檢視範圍 (Padding)，確保外部標註有足夠空間顯示
+        const svg = document.getElementById('culvertSvg');
+        const padX = 1.8;
+        const padY = 1.8;
+        const minX = -t1 - pcExt - padX;
+        const minY = -t2 - padY;
+        const widthView = (S + 2*t1 + 2*pcExt) + padX*2;
+        const heightView = (H + t2 + t3 + pcThick) + padY*2;
+        svg.setAttribute('viewBox', `${minX} ${minY} ${widthView} ${heightView}`);
+
+        // PC 墊層
+        const rectPC = document.getElementById('rectPC');
+        rectPC.setAttribute('x', -t1 - pcExt);
+        rectPC.setAttribute('y', H + t3);
+        rectPC.setAttribute('width', S + 2*t1 + 2*pcExt);
+        rectPC.setAttribute('height', pcThick);
+
+        // RC 結構外廓
+        const rectOuter = document.getElementById('rectOuter');
+        rectOuter.setAttribute('x', -t1);
+        rectOuter.setAttribute('y', -t2);
+        rectOuter.setAttribute('width', S + 2*t1);
+        rectOuter.setAttribute('height', H + t2 + t3);
+
+        // 內部八邊形淨空
+        const points = `
+            ${F},0 
+            ${S-F},0 
+            ${S},${F} 
+            ${S},${H-F} 
+            ${S-F},${H} 
+            ${F},${H} 
+            0,${H-F} 
+            0,${F}
+        `;
+        document.getElementById('polyInner').setAttribute('points', points);
+
+        // 1. 跨度 S 外部標註 (放置於頂版上方 y = -t2 - 0.6)
+        const dimY_S = -t2 - 0.6;
+        document.getElementById('extS1').setAttribute('x1', 0);
+        document.getElementById('extS1').setAttribute('y1', 0);
+        document.getElementById('extS1').setAttribute('x2', 0);
+        document.getElementById('extS1').setAttribute('y2', dimY_S - 0.1);
+
+        document.getElementById('extS2').setAttribute('x1', S);
+        document.getElementById('extS2').setAttribute('y1', 0);
+        document.getElementById('extS2').setAttribute('x2', S);
+        document.getElementById('extS2').setAttribute('y2', dimY_S - 0.1);
+
+        document.getElementById('lineS').setAttribute('x1', 0);
+        document.getElementById('lineS').setAttribute('y1', dimY_S);
+        document.getElementById('lineS').setAttribute('x2', S);
+        document.getElementById('lineS').setAttribute('y2', dimY_S);
+
+        const textS = document.getElementById('textS');
+        textS.setAttribute('x', S/2);
+        textS.setAttribute('y', dimY_S - 0.25);
+        textS.textContent = `S = ${S.toFixed(1)}m`;
+
+        // 2. 高度 H 外部標註 (放置於右側牆外側 x = S + t1 + 0.6)
+        const dimX_H = S + t1 + 0.6;
+        document.getElementById('extH1').setAttribute('x1', S);
+        document.getElementById('extH1').setAttribute('y1', 0);
+        document.getElementById('extH1').setAttribute('x2', dimX_H + 0.1);
+        document.getElementById('extH1').setAttribute('y2', 0);
+
+        document.getElementById('extH2').setAttribute('x1', S);
+        document.getElementById('extH2').setAttribute('y1', H);
+        document.getElementById('extH2').setAttribute('x2', dimX_H + 0.1);
+        document.getElementById('extH2').setAttribute('y2', H);
+
+        document.getElementById('lineH').setAttribute('x1', dimX_H);
+        document.getElementById('lineH').setAttribute('y1', 0);
+        document.getElementById('lineH').setAttribute('x2', dimX_H);
+        document.getElementById('lineH').setAttribute('y2', H);
+
+        const textH = document.getElementById('textH');
+        textH.setAttribute('x', dimX_H + 0.2);
+        textH.setAttribute('y', H/2);
+        textH.textContent = `H = ${H.toFixed(1)}m`;
+    }
+
+    function applyPreset(S, H, t1, t2, t3, F) {
+        document.getElementById('inpS').value = S;
+        document.getElementById('inpH').value = H;
+        document.getElementById('inpT1').value = t1;
+        document.getElementById('inpT2').value = t2;
+        document.getElementById('inpT3').value = t3;
+        document.getElementById('inpF').value = F;
+        updateAll();
+    }
+
+    function copySummary() {
+        const S = document.getElementById('inpS').value;
+        const H = document.getElementById('inpH').value;
+        const rc = document.getElementById('resRC').innerText;
+        const pc = document.getElementById('resPC').innerText;
+        const form = document.getElementById('resForm').innerText;
+
+        const summaryText = `【箱涵數量計算摘要】\n` +
+            `尺寸：淨跨 S=${S}m x 淨高 H=${H}m\n` +
+            `-------------------------\n` +
+            `1. 結構混凝土 (RC): ${rc} m³/m\n` +
+            `2. 墊層混凝土 (PC): ${pc} m³/m\n` +
+            `3. 模板總面積: ${form} m²/m\n` +
+            `-------------------------\n` +
+            `計算來源：箱涵幾何與數量動態計算儀表板`;
+
+        navigator.clipboard.writeText(summaryText).then(() => {
+            const msg = document.getElementById('exportMsg');
+            msg.style.display = 'inline';
+            setTimeout(() => { msg.style.display = 'none'; }, 3000);
+        });
+    }
+
+    window.onload = updateAll;
+</script>
+
+</body>
+</html>
